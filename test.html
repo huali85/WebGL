@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Skeleton Test</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+        <style>
+            body{
+                font-family: Monospace;
+                background-color: #000;
+                color: #fff;
+                margin: 0px;
+                overflow: hidden;
+            }
+        </style>
+	</head>
+
+	<body>
+		<div id="WebGL">
+
+        </div>
+
+        <script src="js/three.min.js"></script>
+        <script src="js/dat.gui.min.js"></script>
+        <script src="js/OrbitControls.js"></script>
+
+		<script>
+
+            var renderer;
+            var scene;
+            var camera;
+
+            var control;
+            var orbit;
+            var helper;
+            var model;
+
+            init();
+
+			function init() {
+
+                var container = document.createElement('div');
+                document.body.appendChild(container);
+
+                // scene
+                scene = new THREE.Scene();
+
+                // camera
+                camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 1000);
+                // position and point the camera to the center of the scene
+                camera.position.x = 22;
+                camera.position.y = 22;
+                camera.position.z = 22;
+                camera.lookAt(scene.position);
+
+                // renderer
+                renderer = new THREE.WebGLRenderer();
+                renderer.setClearColor(0x000000);
+                renderer.setPixelRatio(window.devicePixelRatio);
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                container.appendChild(renderer.domElement);
+
+                // lights
+                var dirLight = new THREE.DirectionalLight();
+                dirLight.position.set(15, 10, -5);
+                scene.add(dirLight);
+
+                var dirLight2 = new THREE.DirectionalLight();
+                dirLight2.position.set(-15, 10, -5);
+                scene.add(dirLight2);
+
+                var spotLight = new THREE.SpotLight();
+                spotLight.position.set(40, 40, 40);
+                scene.add(spotLight);
+
+                // UI
+                control = new function () {
+                    this.neck_rot_x = 0.01;
+                    this.neck_rot_y = 0.01;
+                    this.neck_rot_z = 0.01;
+                    this.tail_rot_speed = 0.1;
+                };
+                addControls(control);
+
+                // models
+                var loader = new THREE.JSONLoader();
+                loader.load('models/Girafe.json', function(geometry, materials) {
+
+                    materials.forEach(function (mat) {
+                        mat.skinning = true;
+                        //mat.side = THREE.DoubleSide;
+                    });
+
+                    model = new THREE.SkinnedMesh(geometry, materials[0]);
+                    model.rotation.x = -0.2;
+                    model.rotation.y = 1.5;
+                    model.rotation.z = 0.2;
+                    model.position.y = -5;
+                    scene.add(model);
+
+                    // set defaults for control object
+                    control.neck_rot_x = model.children[0].children[1].children[0].children[0].rotation.x;
+                    control.neck_rot_y = model.children[0].children[1].children[0].children[0].rotation.y;
+                    control.neck_rot_z = model.children[0].children[1].children[0].children[0].rotation.z;
+
+                    helper = new THREE.SkeletonHelper(model);
+                    helper.visible = false;
+                    scene.add(helper);
+
+                    animate();
+                });
+
+                // controls
+                orbit = new THREE.OrbitControls(camera, renderer.domElement);
+
+                // events
+                window.addEventListener('resize', onWindowResize, false);
+			}
+
+			function onWindowResize() {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize(window.innerWidth, window.innerHeight);
+			}
+
+            function addControls(controlObject) {
+                var gui = new dat.GUI();
+                gui.add(controlObject, 'neck_rot_x', -Math.PI, Math.PI).listen();
+                gui.add(controlObject, 'neck_rot_y', -Math.PI, Math.PI).listen();
+                gui.add(controlObject, 'neck_rot_z', -Math.PI, Math.PI).listen();
+                gui.add(controlObject, 'tail_rot_speed', -1.0, 1.0).listen();
+
+                gui.add({helper: false}, 'helper').onChange(function (e) {
+                    helper.visible = e
+                });
+            }
+
+			function animate() {
+				requestAnimationFrame(animate);
+
+                // the neck bone
+                model.children[0].children[1].children[0].children[0].rotation.x = control.neck_rot_x;
+                model.children[0].children[1].children[0].children[0].rotation.y = control.neck_rot_y;
+                model.children[0].children[1].children[0].children[0].rotation.z = control.neck_rot_z;
+
+                // the tail bone
+                model.children[0].children[0].children[0].rotation.z += control.tail_rot_speed;
+
+                helper.update();
+                orbit.update();
+
+				render();
+			}
+			
+			function render() {
+				renderer.render(scene, camera);
+			}
+
+		</script>
+	</body>
+</html>

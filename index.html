@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>WebGL Test</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+        <style>
+            body{
+                font-family: Monospace;
+                background-color: #000;
+                color: #fff;
+                margin: 0px;
+                overflow: hidden;
+            }
+        </style>
+	</head>
+
+	<body>
+		<div id="WebGL">
+        </div>
+
+        <script src="js/three.min.js"></script>
+        <script src="js/dat.gui.min.js"></script>
+        <script src="js/OBJLoader.js"></script>
+        <script src="js/OrbitControls.js"></script>
+
+		<script>
+
+            var renderer;
+            var scene;
+            var camera;
+
+            var control;
+            var orbit;
+            var scene_obj = [];
+            var text_canvas;
+            var text_material;
+            var text_sprite;
+
+            init();
+
+			function init() {
+
+                var container = document.createElement('div');
+                document.body.appendChild(container);
+
+                // scene
+                scene = new THREE.Scene();
+
+                // camera
+                camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 1000);
+
+                // renderer
+                renderer = new THREE.WebGLRenderer();
+                renderer.setClearColor(0x000000);
+                renderer.setPixelRatio(window.devicePixelRatio);
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                container.appendChild(renderer.domElement);
+
+                // lights
+                var ambient = new THREE.AmbientLight(0x101030);
+                scene.add(ambient);
+
+                var directionalLight = new THREE.DirectionalLight(0xffeedd);
+                directionalLight.position.set(0, 0, 1);
+                directionalLight.castShadow = true;
+                scene.add(directionalLight);
+
+                // grid
+                var gridHelper = new THREE.GridHelper( 28, 28, 0x303030, 0x303030 );
+                gridHelper.position.set( 0, 0, 0 );
+                scene.add( gridHelper );
+
+                // UI
+                control = new function () {
+                    this.rot_speed = 0.1;
+                };
+                addControls(control);
+
+                // sprite
+                updateText("speed:");
+                text_sprite.position.set(-50, 1, 1);
+                scene.add(text_sprite);
+
+                // models
+                var manager = new THREE.LoadingManager();
+                manager.onProgress = function(item, loaded, total) {
+                    console.log(item, loaded, total);
+                };
+
+                var onProgress = function (xhr) {
+                    if (xhr.lengthComputable) {
+                        var percentComplete = xhr.loaded / xhr.total * 100;
+                        console.log( Math.round(percentComplete, 2) + '% downloaded' );
+                    }
+                };
+
+                var onError = function (xhr) {
+                    console.error(xhr);
+                };
+
+                var loader = new THREE.OBJLoader(manager);
+                loader.load('models/Rmk3.obj', function(object) {
+                    object.scale.set(0.1, 0.1, 0.1);
+                    buildHierarchy(object);
+                    scene.add(object);
+                    animate();
+                }, onProgress, onError);
+
+                // controls
+                orbit = new THREE.OrbitControls(camera, renderer.domElement);
+                orbit.target.set(0, 0, 0);
+                camera.position.set(0, 80, 100);
+
+                // events
+                window.addEventListener('resize', onWindowResize, false);
+			}
+
+			function onWindowResize() {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize(window.innerWidth, window.innerHeight);
+			}
+
+            function addControls(controlObject) {
+                var gui = new dat.GUI();
+                gui.add(controlObject, 'rot_speed', -1.0, 1.0).listen();
+            }
+
+			function animate() {
+				requestAnimationFrame(animate);
+                scene_obj[1].rotation.y += control.rot_speed;
+                updateText("speed: " + control.rot_speed.toFixed(2));
+				render();
+                orbit.update();
+			}
+			
+			function render() {
+				renderer.render(scene, camera);
+			}
+
+			function buildHierarchy(object) {
+			    for (var i = 0; i < object.children.length; ++i) {
+                    scene_obj.push(object.children[i]);
+                }
+                scene_obj[4].add(scene_obj[5]);
+                scene_obj[3].add(scene_obj[4]);
+                scene_obj[2].add(scene_obj[3]);
+                scene_obj[1].add(scene_obj[2]);
+                scene_obj[0].add(scene_obj[1]);
+            }
+
+            function updateText(message) {
+                var fontface = "Arial";
+                var fontsize = 18;
+
+                if (text_canvas === undefined) {
+                    text_canvas = document.createElement('canvas');
+                }
+                var context = text_canvas.getContext('2d');
+                context.font = fontsize + "px " + fontface;
+                var textWidth = context.measureText(message).width;
+                text_canvas.width = THREE.Math.nextPowerOfTwo(textWidth);
+                text_canvas.height = THREE.Math.nextPowerOfTwo(fontsize);
+                context.textAlign = 'center';
+                context.fillStyle = 'white';
+                context.fillText(message, text_canvas.width / 2, text_canvas.height / 2);
+
+                // canvas contents will be used for a texture
+                var texture = new THREE.Texture(text_canvas);
+                texture.needsUpdate = true;
+
+                if (text_material === undefined) {
+                    text_material = new THREE.SpriteMaterial({
+                        map: texture,
+                        color: 0xffffff
+                    });
+                } else {
+                    text_material.map = texture;
+                }
+
+                if (text_sprite === undefined) {
+                    text_sprite = new THREE.Sprite(text_material);
+                    text_sprite.scale.set(100, 50, 1.0);
+                }
+            }
+
+		</script>
+	</body>
+</html>
